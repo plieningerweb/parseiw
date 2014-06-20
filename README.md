@@ -1,6 +1,6 @@
 Script to parse the output of iw scan command into a table
 
-yh0- 2011-2014 <yysjryysjr DOT gmail DOT com>
+yh0- 2011-2014 yysjryysjr.gmail.com
 
 Licence: GPLv3
 
