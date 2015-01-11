@@ -2,7 +2,7 @@
 #
 # Script to parse the output of iw scan command into a table
 #
-# yh0- 2011-2015 <yysjryysjr DOT gmail DOT com>
+# yh0- 2011-2014 <yysjryysjr DOT gmail DOT com>
 #
 # Licence: GPLv3 
 #
@@ -817,6 +817,7 @@ if __name__ == "__main__":
                          help="Print BSS info for the specified "
                               "bssid (if any).")
 
+    #XXX commented for now, marked for removal
     #parser.add_argument('-c', '--cont', action="store_true", default=False, 
     #                     help="Run continuously until Ctrl+C is pressed.")
 

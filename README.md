@@ -1,6 +1,8 @@
+Old README:
+
 Script to parse the output of iw scan command into a table
 
-yh0- 2011-2015 yysjryysjr.gmail.com
+yh0- 2011-2014 yysjryysjr.gmail.com
 
 Licence: GPLv3
 
@@ -21,4 +23,9 @@ example 3: (file)
   iw dev wlan0 scan > output.txt  ; python parseiw.py output.txt -m
 
 example 4: (pipe)
-  iw dev wlan0 scan passive | python parseiw.py
+  chmod +x parseiw.py
+  iw dev wlan0 scan passive | ./parseiw.py
+
+Note:
+Option -c is commented now, marked for removal as this is wrong (lead to race condition?). This script itself is very wrong. Saved here in github for reference and testing.
+
