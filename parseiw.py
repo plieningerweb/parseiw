@@ -2,7 +2,7 @@
 #
 # Script to parse the output of iw scan command into a table
 #
-# yh0- 2011-2014 <yysjryysjr DOT gmail DOT com>
+# yh0- 2011-2015 <yysjryysjr DOT gmail DOT com>
 #
 # Licence: GPLv3 
 #
@@ -18,7 +18,7 @@ from __future__ import with_statement
 __author__ = 'Yahya Sjahrony "yh0-"'
 __email__ = 'yysjryysjr@gmail.com'
 __website__= ''
-__version__ = '0.3'
+__version__ = '0.4'
 __file__ = 'parseiw.py'
 __data__ = 'A class for parsing iw scan command output'
 __licence__ = 'GPLv3'
@@ -59,10 +59,14 @@ class iwScanParse:
             "/usr/local/etc/aircrack-ng/airodump-ng-oui.txt",
             "/usr/share/aircrack-ng/airodump-ng-oui.txt",
             "/var/lib/misc/oui.txt",
+            "/usr/share/misc/oui.txt",
+            "/var/lib/ieee-data/oui.txt",
+            "/usr/share/ieee-data/oui.txt",
             "/etc/manuf/oui.txt",
             "/usr/share/wireshark/wireshark/manuf/oui.txt",
             "/usr/share/wireshark/manuf/oui.txt"
         ]
+
         self.phydev = "null"
         self.bss_status = ""
 
@@ -107,7 +111,7 @@ class iwScanParse:
         self.ouiTxt = oui
         self.ouiRaw = self.ouiOpen()
         self.oui_company = self.ouiParse()
-
+        #sys.exit()
         # DEV init
         if self.dev is not None: # iw check
             iw_found = False
@@ -189,7 +193,7 @@ class iwScanParse:
                 self.rules.pop('WPS')
                 self.columns.remove('WPS')
 
-            self.columns.extend(['WPS', 'STA', 'CO', 'MANUF'])
+            self.columns.extend(['WPS', 'STA', 'CO']) #, 'MANUF'])
             self.columns.insert(self.columns.index('ENC')+1, 'CIPHERS')
             self.columns.insert(self.columns.index('ENC')+2, 'AUTH')
             self.columns.insert(self.columns.index('PWR')+1, 'UPTIME')
@@ -200,8 +204,8 @@ class iwScanParse:
                  'UPTIME':self.getTSF,
                  'WPS':self.getWPSConfigMethods2,
                  'STA':self.getStationCount,
-                 'CO':self.getCountryIE,
-                 'MANUF':self.getManuf
+                 'CO':self.getCountryIE #,
+                 #'MANUF':self.getManuf
             })
 
         self.get_timestamp = lambda : time.strftime('%Y-%m-%d %H:%M:%S', 
@@ -222,28 +226,17 @@ class iwScanParse:
         HexOui= {}
         Hex = re.compile('.*(hex).*')
         ouiLines = self.ouiRaw.split("\n")
+
+        #XXX?
         for line in ouiLines:
-            if Hex.search(line) is not None: 
-                lineList = Hex.search(line).group().\
-                    replace("\t", " ").split("  ")
-                #XXX
-                lineList[2] = lineList[2].\
-                    replace('Corporation','Corp').\
-                    replace('corporation','corp').\
-                    replace('Technologies', 'Tech').\
-                    replace('TECHNOLOGIES', 'TECH').\
-                    replace('Technology','Tech').\
-                    replace('Communications','Comm').\
-                    replace('LIMITED', 'Ltd').\
-                    replace('Electronics', 'Electro').\
-                    replace(',','').\
-                    replace('.','').\
-                    replace('CoLtd','').\
-                    replace('COLTD','').\
-                    replace('CO LTD','').\
-                    replace('Co Ltd','')
-#                    replace('CoLtd','Co Ltd')
-                HexOui[lineList[0].replace("-",":")] = [lineList[2]]
+            line = line.strip()
+            if Hex.search(line) is not None:
+                if "(hex)" not in line:
+                    continue
+                lineList = Hex.search(line).group().split("(hex)")
+                oui = lineList[0].strip().replace("-",":")
+                manuf = lineList[1].strip().replace(',','').replace('.','').replace('(','').replace(')','').replace('/','').replace('&','').replace(' ','')
+                HexOui[oui] = [manuf[0:8]]
 
         return HexOui
 
@@ -264,8 +257,7 @@ class iwScanParse:
         getBSS
         """
         ret = self.matchingLine(bss, 'BSS')
-        if ret is None:
-            return ''
+        if ret is None: return ''
 
         bss_line = ret.split('(on %s)' % self.dev)
         bss = bss_line[0].strip()
@@ -294,10 +286,8 @@ class iwScanParse:
         return frequency
         """
         ret = self.matchingLine(bss, '\tfreq:')
-        if ret is not None:
-            ret = ret.strip()
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip()
+        else: ret = ''
         return ret
 
     def getCapability(self, bss):
@@ -305,10 +295,8 @@ class iwScanParse:
         return capability
         """
         ret = self.matchingLine(bss, '\tcapability:')
-        if ret is not None:
-            ret = ret.strip()
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip()
+        else: ret = ''
         return ret
 
     def getSignal(self, bss):
@@ -316,10 +304,8 @@ class iwScanParse:
         return signal
         """
         ret = self.matchingLine(bss, '\tsignal:')
-        if ret is not None:
-            ret = ret.strip().split('.')[0]
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip().split('.')[0]
+        else: ret = ''
         return ret
 
     def getSSID(self, bss):
@@ -328,15 +314,10 @@ class iwScanParse:
         """
         ret = ''
         ssid = self.matchingLine(bss, '\tSSID:')
-        if ssid is None:
-            return ret
-
-        if ssid == '': 
-            ret = '<length=0>'
-        elif r'\x00' in ssid: 
-            ret = '<length=%s>' % (len(ssid.strip())/4)
-        else:
-            ret = ssid.strip()
+        if ssid is None: return ret
+        if ssid == '': ret = '<length=0>'
+        elif r'\x00' in ssid: ret = '<length=%s>' % (len(ssid.strip())/4)
+        else: ret = ssid.strip()
         return ret
 
     def getSupprates(self, bss):
@@ -344,10 +325,8 @@ class iwScanParse:
         return supported rates
         """
         ret = self.matchingLine(bss, '\tSupported rates:')
-        if ret is not None:
-            ret = ret.strip()
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip()
+        else: ret = ''
         return ret
 
     def getExtSupprates(self, bss):
@@ -355,10 +334,8 @@ class iwScanParse:
         return extended supported rates
         """
         ret = self.matchingLine(bss, '\tExtended supported rates:')
-        if ret is not None:
-            ret = ret.strip()
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip()
+        else: ret = ''
         return ret
 
     def getChannel(self, bss):
@@ -366,10 +343,8 @@ class iwScanParse:
         return channel
         """
         ret = self.matchingLine(bss, '\tDS Parameter set:')
-        if ret is not None:
-            ret = ret.strip().split('channel ')[-1]
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip().split('channel ')[-1]
+        else: ret = ''
         return ret
 
     def guessBSSMode(self, bss):
@@ -378,12 +353,9 @@ class iwScanParse:
         """
         ret = ''
         cap = self.getCapability(bss)
-        if 'ESS' in cap: 
-            ret = 'ESS'
-        elif 'IBSS' in cap:
-            ret = 'IBSS'
-        else: 
-            ret = cap
+        if 'ESS' in cap: ret = 'ESS'
+        elif 'IBSS' in cap: ret = 'IBSS'
+        else: ret = cap
         return ret
 
     def guessBSSCrypto(self, bss): #XXX
@@ -417,7 +389,6 @@ class iwScanParse:
                     ret = 'WEP'
         else:
             ret = 'OPN' if cap != '' else cap
-
         return ret
 
     def getPairwiseCiphers(self, bss):
@@ -425,10 +396,8 @@ class iwScanParse:
         return pairwise ciphers
         """
         ret = self.matchingLine(bss, '\t\t * Pairwise ciphers:')
-        if ret is not None:
-            ret = ret.strip()
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip()
+        else: ret = ''
         return ret
 
     def getAuthSuites(self, bss):
@@ -436,10 +405,8 @@ class iwScanParse:
         return authentication suites
         """
         ret = self.matchingLine(bss, '\t\t * Authentication suites:')
-        if ret is not None:
-            ret = ret.strip()
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip()
+        else: ret = ''
         return ret
 
     def guessBSSMaxSupprates(self, bss): #XXX
@@ -447,12 +414,10 @@ class iwScanParse:
         guessBSSMaxSupprates
         """
         rates = self.getSupprates(bss)
-        if 'HT' in rates:
-            return 'HT'
+        if 'HT' in rates: return 'HT'
 
         ext_rates = self.getExtSupprates(bss)
-        if 'HT' in ext_rates:
-            return 'HT'
+        if 'HT' in ext_rates: return 'HT'
 
         if ext_rates != '':
             max_rate = int(max([
@@ -470,7 +435,7 @@ class iwScanParse:
         ret = ''
         if self.matchingLine(bss, '\tWMM:') is not None:
             ret = ''.join([ret, 'e'])
-        if self.matchingLine(bss, '\tHT capabilities:') is not None:
+        if self.matchingLine(bss, '\tHT capabilities:') is not None: #XXX
             ret = ''.join([ret, 'N'])
         return ret
 
@@ -569,7 +534,7 @@ class iwScanParse:
 
     def getWPSConfigMethods2(self, bss):
         """
-        return WPS state & WPS Config methods
+        return WPS state & Config methods
         """
         state = self.getWPSState(bss)
 
@@ -588,10 +553,8 @@ class iwScanParse:
         return extended capabilities
         """
         ret = self.matchingLine(bss, '\tExtended capabilities:')
-        if ret is not None:
-            ret = ret.strip()
-        else:
-            ret = ''
+        if ret is not None: ret = ret.strip()
+        else: ret = ''
         return ret
 
     def getStationCount(self, bss):
@@ -599,10 +562,8 @@ class iwScanParse:
         return station count
         """
         ret = self.matchingLine(bss, '\t\t * station count:')
-        if ret is not None:
-            ret = ret.strip()
-        else:
-            ret = '-'
+        if ret is not None: ret = ret.strip()
+        else: ret = '-'
         return ret
 
     def sortBSSs(self, sortby, bsss): #taken from iwlist scan
@@ -611,7 +572,7 @@ class iwScanParse:
         """
         return sorted(bsss, key=lambda k: k[sortby], reverse=False)
 
-    def parseBSS(self, bss): #taken from iwlist scan
+    def parseBSS(self, bss):
         """
         return parsed BSS
         """
@@ -621,7 +582,7 @@ class iwScanParse:
             parsed_bss.update({key:rule(bss)})
         return parsed_bss
 
-    def printTable(self, table): #taken from iwlist scan
+    def printTable(self, table):
         """
         print table
         """
@@ -639,7 +600,7 @@ class iwScanParse:
                 print (el),
             print("")
 
-    def printBSSs(self, bsss): #taken from iwlist scan
+    def printBSSs(self, bsss):
         """
         print BSSs
         """
@@ -663,11 +624,7 @@ class iwScanParse:
 
         mac = mac[0:8].upper()
         if mac in self.oui_company:
-            if self.oui_company[mac][0] == ("Telekom Research and "
-                                            "Development Sdn Bhd"):
-                ret = "TM R&D Sdn Bhd"
-            else:
-                ret = self.oui_company[mac][0].strip()
+            ret = self.oui_company[mac][0].strip()
         return ret
 
     def getIdxs(self, value, qlist):
@@ -796,9 +753,6 @@ class iwScanParse:
                 cleaned_data.append(cur_line)
                 if line.startswith('BSS'):
                     if data.count(cur_line) > 1:
-                        #XXX probably false positive but seems to work for:
-                        # - airbase-ng -P -C 20 and
-                        # - hostapd with DigiNinja Karma patch
                         ap = cur_line.split(' ')[1].replace('(on','')
                         if apz.count(ap) == 0:
                             apz.append(ap)
@@ -863,8 +817,8 @@ if __name__ == "__main__":
                          help="Print BSS info for the specified "
                               "bssid (if any).")
 
-    parser.add_argument('-c', '--cont', action="store_true", default=False, 
-                         help="Run continuously until Ctrl+C is pressed.")
+    #parser.add_argument('-c', '--cont', action="store_true", default=False, 
+    #                     help="Run continuously until Ctrl+C is pressed.")
 
     parser.add_argument('-m', '--more', action="store_true", default=False, 
                          help="Show more columns in the output table.")
@@ -922,9 +876,9 @@ if __name__ == "__main__":
     try:
         parser = iwScanParse(dev=dev, infile=infile,
                         bssid=bssid, logfile=logfile, 
-                        cont=args.cont, more=args.more,
-                        oui="/etc/aircrack-ng/airodump-ng-oui.txt",
-                        iw="/home/home/Desktop/iw-dev") #XXX
+                        cont=False, more=args.more,
+                        oui=None,
+                        iw=None) #XXX
         parser.iwScanParse()
     except KeyboardInterrupt:
         print
@@ -934,4 +888,3 @@ if __name__ == "__main__":
         else:
             print(err)
         sys.exit(1)
-
