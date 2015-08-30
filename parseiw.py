@@ -787,6 +787,7 @@ class iwScanParse:
                                             self.get_timestamp()))
 
             self.printBSSs(self.sortBSSs(self.sortby, parsed_bsss))
+            self.parsed_bsss = parsed_bsss
 
             if len(apz) > 0:
                 print("WARNING: checkout the BSS: %s\n" % str(apz).\
