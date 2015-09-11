@@ -149,6 +149,7 @@ class iwScanParse:
 
             # iw scan command list
             self.iw_scan_cmd = [
+                'sudo',
                 self.iw,
                 'dev',
                 self.dev,
