@@ -153,7 +153,8 @@ class iwScanParse:
                 self.iw,
                 'dev',
                 self.dev,
-                'scan'#,
+                'scan',
+                'ap-force'
                 #'passive'
             ]
 
